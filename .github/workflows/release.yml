@@ -1,0 +1,47 @@
+# THE PROVIDER'S SIGNED RELEASE, IN ITS PUBLIC COPY (ONPLO-5158).
+#
+# This file is written in onplo, at .github/public-copies/terraform-provider-onplo/release.yml, and
+# the release robot copies it here. A change made here is overwritten by the next release.
+#
+# It runs only from a `v*` tag, which only the release robot can push. The environment `release` opens
+# only for such a tag, and it alone holds the signing key and its passphrase. GoReleaser builds every
+# platform the registries list, signs the checksums with that key and makes the GitHub release that
+# OpenTofu's and HashiCorp's registries read.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e   # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: the signing key, imported
+        id: key
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd   # v7.0.0
+        with:
+          gpg_private_key: ${{ secrets.TERRAFORM_PROVIDER_RELEASE_SIGNING_KEY }}
+          passphrase: ${{ secrets.TERRAFORM_PROVIDER_RELEASE_SIGNING_PASSPHRASE_SECRET }}
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de   # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.20.2
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.key.outputs.fingerprint }}
